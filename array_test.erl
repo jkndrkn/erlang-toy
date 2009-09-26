@@ -1,18 +1,17 @@
 -module(array_test).
 -compile(export_all).
 
-% Compares sequential and random access of Erlang native lists and arrays
+% Compares sequential and random access performance of Erlang native lists and arrays.
 %
 % Usage: array_test:main(Magnitude,Iterations)
 %
 % Magnitude is the number of zeros in the size of the test arrays and lists.
-% Iterations is the number of times the benchmarks are executed prior to averaging.
+% Iterations is the number of times the benchmarks are executed prior to averaging their results.
 
 main(Magnitude) ->
     main(Magnitude, 10).
 
-% TODO: Implement iterations feature.
-main(Magnitude,_Iterations) -> 
+main(Magnitude,Iterations) -> 
     Size = round(math:pow(10, Magnitude)),
     Benchmarks = 
 	[
@@ -21,7 +20,60 @@ main(Magnitude,_Iterations) ->
 	 {array_seq,fun(S) -> array_seq(S) end},
 	 {array_rand,fun(S) -> array_rand(S) end}
 	],
-    benchmark_run(Size, Benchmarks).
+    Results = benchmark_iterate(Size, Benchmarks, Iterations),
+    Averages = compute_averages(Results,length(Benchmarks),Iterations),
+    format_results(lists:reverse(Benchmarks), Averages).
+
+format_results(B,A) ->
+    format_results(B,A,[]).
+
+format_results([], [], Output) ->
+    io:format("~w~n", [Output]);
+format_results([{Benchmark,_}|Benchmarks],[Average|Averages],Output) ->
+    format_results(Benchmarks,Averages,[{Benchmark,Average}|Output]).
+
+compute_averages(Results,Size,Iterations) ->
+    Averages = compute_averages_sum(Results,list_build(Size,fun() -> 0.0 end)),
+    compute_averages_average(Iterations,Averages).
+
+compute_averages_average(S,A) ->
+    compute_averages_average(S,A,[]).
+
+compute_averages_average(_,[],Results) ->
+    lists:reverse(Results);
+compute_averages_average(Size,[H|T],Results) ->
+    compute_averages_average(Size, T, [H / Size | Results]).
+    
+compute_averages_sum([],Times) ->
+    Times;
+compute_averages_sum([Result|Results],Times) ->
+    TimesResult = extract_results(Result),
+    TimesNew = list_sum(Times,TimesResult),
+    compute_averages_sum(Results, TimesNew).
+
+list_sum(L1,L2) when length(L1) =:= length(L2) ->
+    list_sum(L1,L2,[]).
+
+list_sum([],[],S) ->
+    lists:reverse(S);
+list_sum([H1|T1],[H2|T2],S) ->
+    list_sum(T1,T2,[H1 + H2 | S]).
+
+extract_results(Results) ->    
+    extract_results(Results, []).
+
+extract_results([], Values) ->
+    lists:reverse(Values);
+extract_results([{_,Result}|Results], Values) ->
+    extract_results(Results,[Result|Values]).    
+
+benchmark_iterate(S,B,I) ->
+    benchmark_iterate(S,B,I,[]).
+
+benchmark_iterate(_,_,0,Results) ->
+    lists:reverse(Results);
+benchmark_iterate(Size,Benchmarks,Iterates,Results) ->
+    benchmark_iterate(Size,Benchmarks,Iterates - 1,[benchmark_run(Size,Benchmarks)|Results]).
 
 benchmark_run(S,B) ->
     benchmark_run(S,B,[]).
@@ -35,11 +87,14 @@ benchmark_run(Size,[{BenchmarkName,Benchmark}|Benchmarks],Results) ->
     benchmark_run(Size,Benchmarks,[Result|Results]).    
 
 list_build(Size) ->
-    list_build(Size, []).
+    list_build(Size, fun() -> random:uniform() end).
 
-list_build(0, List) -> List;
-list_build(Size, List) ->
-    list_build(Size - 1, [random:uniform() | List]).
+list_build(Size,Value) ->
+    list_build(Size,Value,[]).
+
+list_build(0,_,List) -> List;
+list_build(Size,Value,List) ->
+    list_build(Size - 1, Value, [Value() | List]).
 
 list_seq(Size) ->
     List1 = list_build(Size),

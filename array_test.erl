@@ -118,13 +118,7 @@ list_rand(Size,Length,List1,List2,List3) ->
     list_rand(Size - 1, List1, List2, [Result | List3]).
 
 array_build(Size) ->
-    Array = array:new(Size),
-    array_build(Size, Array).
-
-array_build(0,Array) ->
-    Array;
-array_build(Size,Array) ->
-    array_build(Size - 1, array:set(Size - 1, random:uniform(), Array)).   
+    array:map(fun(_,_) -> random:uniform() end, array:new(Size)).
 
 array_seq(Size) ->
     Array1 = array_build(Size),

@@ -8,28 +8,23 @@
 % Magnitude is the number of zeros in the size of the test arrays and lists.
 % Iterations is the number of times the benchmarks are executed prior to averaging their results.
 
+-define(BENCHMARKS, [list_seq, list_rand, list_square, array_seq, array_seq_list, array_seq_map, array_rand, array_square]).
+
 main(Magnitude) ->
     main(Magnitude, 10).
 
 main(Magnitude,Iterations) -> 
     Size = round(math:pow(10, Magnitude)),
-    Benchmarks = 
-	[
-	 {list_seq,fun(S) -> list_seq(S) end},
-	 {list_rand,fun(S) -> list_rand(S) end},
-	 {array_seq,fun(S) -> array_seq(S) end},
-	 {array_rand,fun(S) -> array_rand(S) end}
-	],
-    Results = benchmark_iterate(Size, Benchmarks, Iterations),
-    Averages = compute_averages(Results,length(Benchmarks),Iterations),
-    format_results(lists:reverse(Benchmarks), Averages).
+    Results = benchmark_iterate(Size, ?BENCHMARKS, Iterations),
+    Averages = compute_averages(Results,length(?BENCHMARKS),Iterations),
+    format_results(lists:reverse(?BENCHMARKS), Averages).
 
 format_results(B,A) ->
     format_results(B,A,[]).
 
 format_results([], [], Output) ->
-    io:format("~w~n", [Output]);
-format_results([{Benchmark,_}|Benchmarks],[Average|Averages],Output) ->
+    [io:format("~w\t~10.2f~n", [Benchmark,Time]) || {Benchmark, Time} <- Output];
+format_results([Benchmark|Benchmarks],[Average|Averages],Output) ->
     format_results(Benchmarks,Averages,[{Benchmark,Average}|Output]).
 
 compute_averages(Results,Size,Iterations) ->
@@ -79,11 +74,11 @@ benchmark_run(S,B) ->
     benchmark_run(S,B,[]).
 
 benchmark_run(_,[],Results) -> Results;
-benchmark_run(Size,[{BenchmarkName,Benchmark}|Benchmarks],Results) ->
+benchmark_run(Size,[Benchmark|Benchmarks],Results) ->
     TimeStart = time_microseconds(),
-    Benchmark(Size),
+    apply(array_test, Benchmark, [Size]),
     TimeEnd = time_microseconds(),
-    Result = {BenchmarkName,TimeEnd - TimeStart},
+    Result = {Benchmark,TimeEnd - TimeStart},
     benchmark_run(Size,Benchmarks,[Result|Results]).    
 
 list_build(Size) ->
@@ -145,6 +140,36 @@ array_seq(Size, Array1, Array2, Array3) ->
     Index = Size - 1,
     Result = array:get(Index, Array1) * array:get(Index, Array2),
     array_seq(Index, Array1, Array2, array:set(Index, Result, Array3)).    
+
+array_seq_list(Size) ->
+    Array1 = array_build(Size),
+    Array2 = array_build(Size),
+    array_seq_list(Size, Array1, Array2).
+
+array_seq_list(Size,Array1,Array2) ->
+    array_seq_list(Size, Array1, Array2, []).
+
+array_seq_list(0,_,_,List) ->
+    List;
+array_seq_list(Size, Array1, Array2, List) ->
+    Index = Size - 1,
+    Result = array:get(Index, Array1) * array:get(Index, Array2),
+    array_seq_list(Index, Array1, Array2, [Result|List]).
+
+array_seq_map(Size) ->
+    Array1 = array_build(Size),
+    Array2 = array_build(Size),
+    array_seq_map(Array1, Array2).
+
+array_seq_map(Array1,Array2) ->
+    array:map(fun(Index, Val) -> array:get(Index, Array1) * Val end, Array2).
+
+array_square(Size) ->
+    array:map(fun(_, Val) -> Val * Val end, array_build(Size)).
+
+list_square(Size) ->
+    List = list_build(Size),
+    [X * X || X <- List].
 
 array_rand(Size) ->
     Array1 = array_build(Size),

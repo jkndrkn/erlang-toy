@@ -1,14 +1,14 @@
 -module(array_test).
 -compile(export_all).
 
-% Compares sequential and random access performance of Erlang native lists and arrays.
+% Compares sequential and random access performance of Erlang native lists, arrays, and dicts.
 %
 % Usage: array_test:main(Magnitude,Iterations)
 %
 % Magnitude is the number of zeros in the size of the test arrays and lists.
 % Iterations is the number of times the benchmarks are executed prior to averaging their results.
 
--define(BENCHMARKS, [list_seq, list_rand, list_square, array_seq, array_seq_list, array_seq_map, array_rand, array_square]).
+-define(BENCHMARKS, [list_seq, list_rand, list_square, array_seq, array_seq_list, array_seq_map, array_rand, array_square, dict_rand]).
 
 main(Magnitude) ->
     main(Magnitude, 10).
@@ -120,6 +120,15 @@ list_rand(Size,Length,List1,List2,List3) ->
 array_build(Size) ->
     array:map(fun(_,_) -> random:uniform() end, array:new(Size)).
 
+dict_build(Size) ->
+    dict_build(Size, dict:new(), 0).
+
+dict_build(Size, Dict, Iteration) when Iteration >= Size ->
+    Dict;
+dict_build(Size, Dict, Iteration) ->
+    DictNew = dict:store(Iteration, random:uniform(), Dict),
+    dict_build(Size, DictNew, Iteration + 1).
+
 array_seq(Size) ->
     Array1 = array_build(Size),
     Array2 = array_build(Size),
@@ -180,6 +189,20 @@ array_rand(Size,Length,Array1,Array2,Array3) ->
     Index2 = random:uniform(Length) - 1,
     Result = array:get(Index1, Array1) * array:get(Index2, Array2),
     array_rand(Size - 1, Length, Array1, Array2, array:set(Size - 1, Result, Array3)).
+
+dict_rand(Size) ->
+    Dict1 = dict_build(Size),
+    Dict2 = dict_build(Size),
+    Dict3 = dict_build(Size),
+    dict_rand(Size,Size,Dict1,Dict2,Dict3).
+
+dict_rand(0,_,_,_,Dict3) ->
+    Dict3;
+dict_rand(Size,Length,Dict1,Dict2,Dict3) ->
+    Index1 = random:uniform(Length) - 1,
+    Index2 = random:uniform(Length) - 1,
+    Result = dict:fetch(Index1, Dict1) * dict:fetch(Index2, Dict2),
+    dict_rand(Size - 1, Length, Dict1, Dict2, dict:store(Size - 1, Result, Dict3)).    
 
 time_microseconds() ->
     {MS, S, US} = now(),
